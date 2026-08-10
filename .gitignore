@@ -5,3 +5,4 @@ __pycache__/
 kirihara_cache.json
 *.har
 .superpowers/
+docs/
