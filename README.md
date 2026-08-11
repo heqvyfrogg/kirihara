@@ -38,7 +38,9 @@ cp .env.example .env
 KIRIHARA_ACCOUNT_NAME=your_student_account_id
 KIRIHARA_PASSWORD=your_student_password
 GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-flash-latest  # 任意 (デフォルト: gemini-flash-latest)
 ```
+
 
 ## 使い方
 
