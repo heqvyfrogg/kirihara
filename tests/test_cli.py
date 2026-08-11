@@ -26,8 +26,11 @@ def test_parse_args():
     assert args_run.wait is True
     assert args_run.human_like is False
 
-    args_human = parse_args(["run", "94506", "--human-like"])
+    args_human = parse_args(["run", "94506", "--human-like", "--speed", "1.5", "--delay-sec", "45", "--instant"])
     assert args_human.human_like is True
+    assert args_human.speed == 1.5
+    assert args_human.delay_sec == 45.0
+    assert args_human.instant is True
 
 def test_get_auth_credentials(monkeypatch):
     monkeypatch.setenv("KIRIHARA_ACCOUNT_NAME", "env_user")

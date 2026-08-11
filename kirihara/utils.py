@@ -25,6 +25,72 @@ def simulate_delay(min_sec: float = 1.0, max_sec: float = 3.0) -> float:
     time.sleep(delay)
     return delay
 
+def calculate_human_delay(question_set: Any, speed_factor: float = 1.0) -> float:
+    """
+    Calculate realistic human answering delay based on question types and counts.
+    - Multiple choice: 4.0 - 7.5 seconds per question
+    - Ordering (並び替え): 9.0 - 18.0 seconds per question
+    - Listening (音声): 8.0 - 15.0 seconds per question
+    """
+    total = 0.0
+    for mq in getattr(question_set, "mainQuestions", []):
+        for q in getattr(mq, "questions", []):
+            if getattr(mq, "type", 0) == 1:
+                base = random.uniform(9.0, 18.0)
+            elif getattr(q, "audioUrl", None):
+                base = random.uniform(8.0, 15.0)
+            else:
+                base = random.uniform(4.0, 7.5)
+            total += base
+    
+    if total <= 0:
+        total = max(5.0, getattr(question_set, "count", 1) * 5.5)
+
+    factor = max(0.05, speed_factor)
+    return round(total / factor, 1)
+
+def simulate_human_delay_countdown(target_seconds: float, show_progress: bool = True) -> float:
+    """
+    Wait for target_seconds with real-time countdown progress output.
+    """
+    if target_seconds <= 0:
+        return 0.0
+
+    t_start = time.time()
+    total = target_seconds
+
+    if show_progress:
+        mins_tot = int(total // 60)
+        secs_tot = int(total % 60)
+        tot_str = f"{mins_tot}分{secs_tot}秒" if mins_tot > 0 else f"{int(secs_tot)}秒"
+        print(f"[*] 人間らしい思考時間をシミュレート中 (予定待機時間: {tot_str})...")
+
+    while True:
+        elapsed = time.time() - t_start
+        remaining = max(0.0, total - elapsed)
+        
+        if show_progress:
+            pct = min(100, int((elapsed / total) * 100))
+            mins = int(remaining // 60)
+            secs = int(remaining % 60)
+            time_str = f"{mins}分{secs:02d}秒" if mins > 0 else f"{int(secs)}秒"
+            bar_len = 25
+            filled = int((pct / 100) * bar_len)
+            bar = "#" * filled + "-" * (bar_len - filled)
+            msg = f"\r    [{bar}] {pct:3d}% (残り 約 {time_str}) "
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+
+        if elapsed >= total:
+            break
+        time.sleep(min(0.5, remaining))
+
+    if show_progress:
+        sys.stdout.write("\r    [#########################] 100% (思考シミュレーション完了)\n")
+        sys.stdout.flush()
+
+    return round(time.time() - t_start, 2)
+
 def get_display_width(text: str) -> int:
     """Calculate terminal display width considering full-width characters and emojis."""
     width = 0

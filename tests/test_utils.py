@@ -85,3 +85,32 @@ def test_filter_tests():
     assert [t.distributionId for t in filter_tests(tests, "upcoming")] == [200]
     assert [t.distributionId for t in filter_tests(tests, "expired")] == [300]
 
+def test_calculate_human_delay():
+    from kirihara.utils import calculate_human_delay
+    from kirihara.models import TestQuestionSet, MainQuestion, Question, Option
+
+    # Question set with 2 choice questions and 1 ordering question
+    q1 = Question(id=1, text="Q1", options=[Option(id=1, text="A")])
+    q2 = Question(id=2, text="Q2", options=[Option(id=2, text="B")])
+    mq1 = MainQuestion(id=1, type=0, text="Choice", questions=[q1, q2])
+
+    q3 = Question(id=3, text="Q3", options=[Option(id=3, text="C")])
+    mq2 = MainQuestion(id=2, type=1, text="Ordering", questions=[q3])
+
+    q_set = TestQuestionSet(id=1, title="T", bookName="B", count=3, mainQuestions=[mq1, mq2])
+
+    delay = calculate_human_delay(q_set, speed_factor=1.0)
+    # 2 choice (4-7.5 each) + 1 ordering (9-18) -> min 17, max 33
+    assert 15.0 <= delay <= 36.0
+
+    # 2x speed
+    delay_fast = calculate_human_delay(q_set, speed_factor=2.0)
+    assert delay_fast < delay
+
+def test_simulate_human_delay_countdown():
+    from kirihara.utils import simulate_human_delay_countdown
+    # Short duration
+    elapsed = simulate_human_delay_countdown(0.1, show_progress=False)
+    assert elapsed >= 0.08
+
+

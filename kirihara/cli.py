@@ -10,7 +10,8 @@ from kirihara.solver import KiriharaSolver
 from kirihara.utils import (
     simulate_delay, parse_iso_datetime,
     format_jst, get_test_availability, JST,
-    pad_text, get_display_width, sort_tests, filter_tests
+    pad_text, get_display_width, sort_tests, filter_tests,
+    calculate_human_delay, simulate_human_delay_countdown
 )
 
 load_dotenv()
@@ -53,7 +54,10 @@ def parse_args(args: Optional[List[str]] = None):
     run_p = subparsers.add_parser("run", help="テストを自動解答・提出")
     run_p.add_argument("distribution_id", type=int, help="テスト配信ID (distributionId)")
     run_p.add_argument("--dry-run", action="store_true", help="サーバーへ送信せず、AIが導出した解答プレビューのみ表示")
-    run_p.add_argument("--human-like", action="store_true", help="人間らしい思考時間を模倣して待機")
+    run_p.add_argument("--human-like", action="store_true", help="設問形式・設問数に応じた自然な思考時間（1問約4～12秒）をシミュレートして待機")
+    run_p.add_argument("--delay-sec", type=float, default=None, help="提出前の待機秒数を直接指定（例: --delay-sec 60）")
+    run_p.add_argument("--speed", type=float, default=1.0, help="思考速度倍率（例: 2.0 で2倍速、0.5 でゆっくり待機）")
+    run_p.add_argument("--instant", action="store_true", help="思考待機をスキップして即時提出")
     run_p.add_argument("--target-accuracy", type=float, default=100.0, help="目標正答率（例: 90 で意図的に数問間違える）")
     run_p.add_argument("--wait", action="store_true", help="テスト開始前の場合、開始時刻まで待機して自動開始")
 
@@ -266,9 +270,15 @@ def run_cli(args_list: Optional[List[str]] = None):
             return
 
         t_delay_duration = 0.0
-        if args.human_like:
-            print("\n[*] 人間らしい解答間隔をシミュレート中...")
-            t_delay_duration = simulate_delay(3.0, 6.0)
+        should_delay = not args.instant and (args.human_like or args.delay_sec is not None)
+        if should_delay:
+            if args.delay_sec is not None:
+                target_delay = args.delay_sec
+            else:
+                target_delay = calculate_human_delay(q_set, speed_factor=args.speed)
+            
+            print("")
+            t_delay_duration = simulate_human_delay_countdown(target_delay, show_progress=True)
 
         print("\n[*] 解答を桐原書店サーバーへ一括送信中...")
         t_submit_start = time.time()
@@ -297,7 +307,14 @@ def run_cli(args_list: Optional[List[str]] = None):
 
         # Print detailed timing benchmarks
         infer_label = "ローカルキャッシュ (0トークン)" if was_cached else f"Gemini APIバッチ推論 ({solver.model})"
-        delay_label = f"{t_delay_duration:.2f} 秒 (--human-like シミュレーション)" if args.human_like else "0.00 秒 (即時送信)"
+        if args.instant:
+            delay_label = "0.00 秒 (--instant 即時送信)"
+        elif args.delay_sec is not None:
+            delay_label = f"{t_delay_duration:.2f} 秒 (--delay-sec 指定待機)"
+        elif args.human_like:
+            delay_label = f"{t_delay_duration:.2f} 秒 (人間思考シミュレーション: 速度倍率 {args.speed}x)"
+        else:
+            delay_label = "0.00 秒 (即時送信)"
 
         print(f"\n=== 所要時間・実行メトリクス ===")
         print(f"  - 問題JSON取得     : {t_fetch_duration:.2f} 秒")
@@ -305,9 +322,13 @@ def run_cli(args_list: Optional[List[str]] = None):
         print(f"  - 思考待機時間     : {delay_label}")
         print(f"  - サーバー送信・採点: {t_submit_duration:.2f} 秒")
         print(f"  --------------------------------------------------")
-        print(f"  - トータル所要時間 : {t_total_duration:.2f} 秒 (開始同期～提出完了)")
+        mins_tot = int(t_total_duration // 60)
+        secs_tot = int(t_total_duration % 60)
+        tot_fmt = f"{mins_tot}分{secs_tot}秒 ({t_total_duration:.2f}秒)" if mins_tot > 0 else f"{t_total_duration:.2f}秒"
+        print(f"  - トータル所要時間 : {tot_fmt} (開始同期～提出完了)")
         print(f"  - 開始同期時刻     : {format_jst(start_client_time)} JST")
         if t_completed_info and t_completed_info.answerAt:
             ans_dt = parse_iso_datetime(t_completed_info.answerAt)
             print(f"  - サーバー記録提出 : {format_jst(ans_dt)} JST (answerAt)")
+
 

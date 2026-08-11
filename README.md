@@ -141,18 +141,25 @@ Q#2453918: 再生された英単語の意味 (Level_6_1749_e.mp3) -> 選択解�
 
 ### 5. 解答実行・提出
 ```bash
-# 通常実行
-python main.py run 94506
-
-# 思考時間をシミュレートして提出
+# 人間らしい思考時間を模倣して提出（問題形式・問題数に応じて1問あたり約4～12秒を動的シミュレート）
 python main.py run 94506 --human-like
 
-# 正答率を約90%に調整して提出
-python main.py run 94506 --human-like --target-accuracy 90
+# 思考速度倍率を指定（2.0 で2倍速、0.5 でじっくり）
+python main.py run 94506 --human-like --speed 2.0
+
+# 待機秒数を直接指定（例: 60秒待機）
+python main.py run 94506 --delay-sec 60
+
+# 即時提出（待機なし）
+python main.py run 94506 --instant
+
+# 正答率を約80%に調整して提出（意図的に数問間違える）
+python main.py run 94506 --human-like --target-accuracy 80
 
 # 開始時刻まで待機して自動実行
 python main.py run 94508 --wait --human-like
 ```
+
 
 ## テスト
 
