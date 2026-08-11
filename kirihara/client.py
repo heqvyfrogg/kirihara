@@ -87,6 +87,8 @@ class KiriharaClient:
         """Get static JSON URL for a test distribution."""
         url = f"{BASE_URL}/kirihara/api/students/test/{distribution_id}/url"
         resp = self.session.get(url, headers=self._headers("KFS"))
+        if resp.status_code == 409:
+            return {}
         resp.raise_for_status()
         return resp.json()
 

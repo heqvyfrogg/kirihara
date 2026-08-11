@@ -134,15 +134,16 @@ def run_cli(args_list: Optional[List[str]] = None):
         matched_test = next((t for t in tests if t.distributionId == args.distribution_id), None)
 
         url_info = client.get_test_url(args.distribution_id)
-        json_url = url_info.get("jsonUrl")
+        json_url = url_info.get("jsonUrl") if url_info else None
         q_set = client.fetch_question_set(json_url) if json_url else None
 
         print(f"\n=== テスト詳細情報 (ID: {args.distribution_id}) ===")
-        title = matched_test.title if matched_test else q_set.title if q_set else "-"
-        book = matched_test.bookName if matched_test else q_set.bookName if q_set else "-"
+        title = matched_test.title if matched_test else (q_set.title if q_set else "-")
+        book = matched_test.bookName if matched_test else (q_set.bookName if q_set else "-")
         print(f"タイトル  : {title}")
         print(f"対象書籍  : {book}")
-        print(f"問題数    : {q_set.count if q_set else (matched_test.questionCount if matched_test else '-')} 問")
+        q_count = (q_set.count if q_set else None) or (matched_test.questionCount if matched_test else "-")
+        print(f"問題数    : {q_count} 問")
         if matched_test:
             status_label, time_hint, is_open = get_test_availability(matched_test.startAt, matched_test.endAt, matched_test.status)
             start_fmt = format_jst(parse_iso_datetime(matched_test.startAt))
@@ -157,6 +158,8 @@ def run_cli(args_list: Optional[List[str]] = None):
             for idx, mq in enumerate(q_set.mainQuestions, 1):
                 type_name = "語順整序 (並び替え)" if mq.type == 1 else "選択問題"
                 print(f"  大問{idx} [{type_name}] ({len(mq.questions)}問): {mq.text}")
+        elif matched_test and matched_test.status == 3:
+            print("\n(※受験完了済みのため大問構成の詳細は非表示)")
 
     elif args.command == "run":
         try:
@@ -192,9 +195,9 @@ def run_cli(args_list: Optional[List[str]] = None):
 
         print(f"[*] テスト配信ID {args.distribution_id} の問題データを取得中...")
         url_info = client.get_test_url(args.distribution_id)
-        json_url = url_info.get("jsonUrl")
+        json_url = url_info.get("jsonUrl") if url_info else None
         if not json_url:
-            print(f"[!] エラー: 問題JSONのURL取得に失敗しました。")
+            print(f"[!] エラー: 問題JSONのURL取得に失敗しました。すでに受験完了しているか配信期間外の可能性があります。")
             sys.exit(1)
 
         q_set = client.fetch_question_set(json_url)
@@ -226,12 +229,17 @@ def run_cli(args_list: Optional[List[str]] = None):
         client.submit_answers(payload)
         print("[+] 送信・採点が完了しました！")
 
-        # Verify score
+        # Verify score with retry polling
+        time.sleep(1.0)
         try:
-            latest_tests = client.get_tests(year=2026)
-            for t in latest_tests:
-                if t.distributionId == args.distribution_id:
+            for retry in range(3):
+                latest_tests = client.get_tests(year=2026)
+                t = next((item for item in latest_tests if item.distributionId == args.distribution_id), None)
+                if t and t.correctCount is not None and t.correctCount > 0:
                     print(f"\n[受験結果] {t.title} -> 正解数: {t.correctCount}/{t.questionCount} 点 (ステータス: 完了)")
                     break
+                elif t and retry == 2:
+                    print(f"\n[受験結果] {t.title} -> 正解数: {t.correctCount or 0}/{t.questionCount} 点 (ステータス: 完了)")
+                time.sleep(1.0)
         except Exception:
             pass
