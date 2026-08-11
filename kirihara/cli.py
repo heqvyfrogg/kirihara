@@ -49,6 +49,12 @@ def get_auth_credentials(args):
     return account, password, session_cookie
 
 def run_cli(args_list: Optional[List[str]] = None):
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     args = parse_args(args_list)
     account, password, session_cookie = get_auth_credentials(args)
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
@@ -225,7 +231,7 @@ def run_cli(args_list: Optional[List[str]] = None):
             latest_tests = client.get_tests(year=2026)
             for t in latest_tests:
                 if t.distributionId == args.distribution_id:
-                    print(f"\n🏆 受験結果: {t.title} -> 正解数: {t.correctCount}/{t.questionCount} 点 (ステータス: 完了)")
+                    print(f"\n[受験結果] {t.title} -> 正解数: {t.correctCount}/{t.questionCount} 点 (ステータス: 完了)")
                     break
         except Exception:
             pass

@@ -12,8 +12,9 @@ from kirihara.utils import clean_html
 CACHE_FILE = "kirihara_cache.json"
 
 class KiriharaSolver:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         self.cache: Dict[str, Any] = self._load_cache()
 
     def _load_cache(self) -> Dict[str, Any]:
@@ -66,7 +67,7 @@ class KiriharaSolver:
         from google import genai
         client = genai.Client(api_key=self.api_key)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=self.model,
             contents=prompt,
             config={
                 "response_mime_type": "application/json"
@@ -142,10 +143,10 @@ class KiriharaSolver:
                 sorted_results = sorted(ans.results, key=lambda r: r.order)
                 words = [opt_map.get(r.id, str(r.id)) for r in sorted_results]
                 sentence = " ".join(words)
-                lines.append(f"Q#{q_id} [並び替え]: {q_text}\n    👉 完成文: 「{sentence}」")
+                lines.append(f"Q#{q_id} [並び替え]: {q_text}\n    -> 完成文: 「{sentence}」")
             else:
                 chosen_id = ans.results[0].id if ans.results else None
                 chosen_text = opt_map.get(chosen_id, str(chosen_id))
-                lines.append(f"Q#{q_id}: {q_text} 👉 選択解答: 【 {chosen_text} 】 (ID: {chosen_id})")
+                lines.append(f"Q#{q_id}: {q_text} -> 選択解答: 【 {chosen_text} 】 (ID: {chosen_id})")
 
         return lines
