@@ -2,6 +2,7 @@ import json
 import os
 import re
 import random
+import time
 from typing import Dict, List, Any, Optional, Tuple
 from kirihara.models import (
     TestQuestionSet, SubmittedPayload, QuestionAnswer,
@@ -16,6 +17,8 @@ class KiriharaSolver:
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.model = model or os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         self.cache: Dict[str, Any] = self._load_cache()
+        self.last_inference_time: float = 0.0
+        self.last_was_cached: bool = False
 
     def _load_cache(self) -> Dict[str, Any]:
         target_file = CACHE_FILE
@@ -86,9 +89,15 @@ class KiriharaSolver:
         cache_key = f"test_set_{question_set.id}"
         solved_map = self.cache.get(cache_key)
 
-        if not solved_map:
+        if solved_map:
+            self.last_was_cached = True
+            self.last_inference_time = 0.0
+        else:
+            self.last_was_cached = False
+            t_start = time.time()
             prompt = self._build_compact_prompt(question_set)
             solved_map = self._call_gemini(prompt)
+            self.last_inference_time = time.time() - t_start
             self.cache[cache_key] = solved_map
             self._save_cache()
 

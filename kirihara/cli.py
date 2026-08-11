@@ -173,9 +173,17 @@ def run_cli(args_list: Optional[List[str]] = None):
             start_fmt = format_jst(parse_iso_datetime(matched_test.startAt))
             end_fmt = format_jst(parse_iso_datetime(matched_test.endAt))
             print(f"実施期間  : {start_fmt} ～ {end_fmt} JST ({time_hint})")
+            if matched_test.limitTime:
+                mins = matched_test.limitTime // 60
+                secs = matched_test.limitTime % 60
+                limit_str = f"{matched_test.limitTime} 秒" + (f" ({mins}分{secs}秒)" if secs else f" ({mins}分)")
+                print(f"制限時間  : {limit_str}")
             print(f"ステータス: {status_label}")
             if matched_test.correctCount is not None:
                 print(f"過去スコア: {matched_test.correctCount} / {matched_test.questionCount} 点")
+            if matched_test.answerAt:
+                ans_dt = parse_iso_datetime(matched_test.answerAt)
+                print(f"提出日時  : {format_jst(ans_dt)} JST (サーバー記録)")
 
         if q_set:
             print("\n--- 大問構成 ---")
@@ -217,7 +225,11 @@ def run_cli(args_list: Optional[List[str]] = None):
                         print("[!] 解答プレビューのみ確認したい場合は `--dry-run` を付けて実行してください。")
                         sys.exit(0)
 
+        t_total_start = time.time()
+        start_client_time = datetime.now(JST)
+
         print(f"[*] テスト配信ID {args.distribution_id} の問題データを取得中...")
+        t_fetch_start = time.time()
         url_info = client.get_test_url(args.distribution_id)
         json_url = url_info.get("jsonUrl") if url_info else None
         if not json_url:
@@ -225,7 +237,8 @@ def run_cli(args_list: Optional[List[str]] = None):
             sys.exit(1)
 
         q_set = client.fetch_question_set(json_url)
-        print(f"[+] 問題取得完了: 『{q_set.bookName}』 {q_set.title} (全{q_set.count}問)")
+        t_fetch_duration = time.time() - t_fetch_start
+        print(f"[+] 問題取得完了: 『{q_set.bookName}』 {q_set.title} (全{q_set.count}問) [{t_fetch_duration:.2f}秒]")
 
         if not args.dry_run:
             print("[*] サーバー側テスト開始状態を同期中...")
@@ -235,6 +248,8 @@ def run_cli(args_list: Optional[List[str]] = None):
         accuracy_ratio = args.target_accuracy / 100.0
         print(f"[*] AI自動解答エンジン（Geminiバッチ推論）を実行中 (目標正答率: {args.target_accuracy}%)...")
         payload = solver.solve_test(args.distribution_id, q_set, target_accuracy=accuracy_ratio)
+        t_inference_duration = solver.last_inference_time
+        was_cached = solver.last_was_cached
 
         print("\n=== AI解答プレビュー ===")
         preview_lines = solver.format_preview(q_set, payload)
@@ -243,27 +258,56 @@ def run_cli(args_list: Optional[List[str]] = None):
 
         if args.dry_run:
             print("\n[!] ドライランモードのため、サーバーへの提出は行いませんでした。")
+            infer_label = "ローカルキャッシュ" if was_cached else f"Gemini API ({solver.model})"
+            print(f"\n=== 所要時間・実行メトリクス ===")
+            print(f"  - 問題JSON取得     : {t_fetch_duration:.2f} 秒")
+            print(f"  - 解答生成・推論   : {t_inference_duration:.2f} 秒 ({infer_label})")
+            print(f"  - トータル処理時間 : {time.time() - t_total_start:.2f} 秒")
             return
 
+        t_delay_duration = 0.0
         if args.human_like:
             print("\n[*] 人間らしい解答間隔をシミュレート中...")
-            simulate_delay(3.0, 6.0)
+            t_delay_duration = simulate_delay(3.0, 6.0)
 
         print("\n[*] 解答を桐原書店サーバーへ一括送信中...")
+        t_submit_start = time.time()
         client.submit_answers(payload)
-        print("[+] 送信・採点が完了しました！")
+        t_submit_duration = time.time() - t_submit_start
+        t_total_duration = time.time() - t_total_start
+        print(f"[+] 送信・採点が完了しました！ [{t_submit_duration:.2f}秒]")
 
         # Verify score with retry polling
+        t_completed_info = None
         time.sleep(1.0)
         try:
             for retry in range(3):
                 latest_tests = client.get_tests(year=2026)
                 t = next((item for item in latest_tests if item.distributionId == args.distribution_id), None)
                 if t and t.correctCount is not None and t.correctCount > 0:
+                    t_completed_info = t
                     print(f"\n[受験結果] {t.title} -> 正解数: {t.correctCount}/{t.questionCount} 点 (ステータス: 完了)")
                     break
                 elif t and retry == 2:
+                    t_completed_info = t
                     print(f"\n[受験結果] {t.title} -> 正解数: {t.correctCount or 0}/{t.questionCount} 点 (ステータス: 完了)")
                 time.sleep(1.0)
         except Exception:
             pass
+
+        # Print detailed timing benchmarks
+        infer_label = "ローカルキャッシュ (0トークン)" if was_cached else f"Gemini APIバッチ推論 ({solver.model})"
+        delay_label = f"{t_delay_duration:.2f} 秒 (--human-like シミュレーション)" if args.human_like else "0.00 秒 (即時送信)"
+
+        print(f"\n=== 所要時間・実行メトリクス ===")
+        print(f"  - 問題JSON取得     : {t_fetch_duration:.2f} 秒")
+        print(f"  - 解答生成・推論   : {t_inference_duration:.2f} 秒 ({infer_label})")
+        print(f"  - 思考待機時間     : {delay_label}")
+        print(f"  - サーバー送信・採点: {t_submit_duration:.2f} 秒")
+        print(f"  --------------------------------------------------")
+        print(f"  - トータル所要時間 : {t_total_duration:.2f} 秒 (開始同期～提出完了)")
+        print(f"  - 開始同期時刻     : {format_jst(start_client_time)} JST")
+        if t_completed_info and t_completed_info.answerAt:
+            ans_dt = parse_iso_datetime(t_completed_info.answerAt)
+            print(f"  - サーバー記録提出 : {format_jst(ans_dt)} JST (answerAt)")
+

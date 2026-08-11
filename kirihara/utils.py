@@ -19,10 +19,11 @@ def clean_html(text: Optional[str]) -> str:
     clean = re.sub(r'<[^>]+>', '', text)
     return clean.strip()
 
-def simulate_delay(min_sec: float = 1.0, max_sec: float = 3.0):
-    """Simulate human reading/answering delay."""
+def simulate_delay(min_sec: float = 1.0, max_sec: float = 3.0) -> float:
+    """Simulate human reading/answering delay and return the elapsed seconds."""
     delay = random.uniform(min_sec, max_sec)
     time.sleep(delay)
+    return delay
 
 def get_display_width(text: str) -> int:
     """Calculate terminal display width considering full-width characters and emojis."""

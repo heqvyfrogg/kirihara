@@ -65,6 +65,7 @@ class TestItem(BaseModel):
     status: Optional[int] = None  # 1: 未受験, 3: 完了, etc.
     startAt: Optional[str] = None
     endAt: Optional[str] = None
+    answerAt: Optional[str] = None
 
 class AnswerResult(BaseModel):
     id: int
