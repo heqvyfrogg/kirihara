@@ -104,4 +104,66 @@ def get_test_availability(
     else:
         time_hint = "期限なし"
 
-    return "🔥受験可能 (Active)", time_hint, True
+    return "受験可能 (Active)", time_hint, True
+
+def get_status_rank(status_label: str) -> int:
+    """Assign priority rank for status: Active (1) > Upcoming (2) > Completed (4) > Expired (5) > Other (3)"""
+    if "受験可能" in status_label or "Active" in status_label:
+        return 1
+    elif "開始前" in status_label or "Upcoming" in status_label:
+        return 2
+    elif "完了" in status_label or "Completed" in status_label:
+        return 4
+    elif "期限切れ" in status_label or "Expired" in status_label:
+        return 5
+    return 3
+
+def sort_tests(
+    tests: list,
+    sort_by: str = "date",
+    reverse: bool = False
+) -> list:
+    """
+    Sort a list of TestItem objects.
+    sort_by: 'date', 'id', 'status', 'score', 'title', 'book'
+    """
+    def get_key(t):
+        if sort_by == "id":
+            return t.distributionId
+        elif sort_by == "status":
+            label, _, _ = get_test_availability(t.startAt, t.endAt, t.status)
+            return (get_status_rank(label), t.distributionId)
+        elif sort_by == "score":
+            return t.correctCount if t.correctCount is not None else -1
+        elif sort_by == "title":
+            return str(t.title or "")
+        elif sort_by == "book":
+            return str(t.bookName or "")
+        else:  # 'date' default
+            dt = parse_iso_datetime(t.startAt)
+            return dt.timestamp() if dt else 0.0
+
+    return sorted(tests, key=get_key, reverse=reverse)
+
+def filter_tests(
+    tests: list,
+    filter_status: str = "all"
+) -> list:
+    """
+    Filter tests by status: 'all', 'active', 'upcoming', 'completed', 'expired'
+    """
+    if not filter_status or filter_status == "all":
+        return tests
+
+    filtered = []
+    for t in tests:
+        status_label, _, is_open = get_test_availability(t.startAt, t.endAt, t.status)
+        if filter_status == "active" and is_open:
+            filtered.append(t)
+        elif filter_status == "upcoming" and ("開始前" in status_label or "Upcoming" in status_label):
+            filtered.append(t)
+        elif filter_status == "completed" and (t.status == 3 or "完了" in status_label):
+            filtered.append(t)
+        elif filter_status == "expired" and ("期限切れ" in status_label or "Expired" in status_label):
+            filtered.append(t)
+    return filtered

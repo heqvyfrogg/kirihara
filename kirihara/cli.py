@@ -10,7 +10,7 @@ from kirihara.solver import KiriharaSolver
 from kirihara.utils import (
     simulate_delay, parse_iso_datetime,
     format_jst, get_test_availability, JST,
-    pad_text, get_display_width
+    pad_text, get_display_width, sort_tests, filter_tests
 )
 
 load_dotenv()
@@ -27,6 +27,23 @@ def parse_args(args: Optional[List[str]] = None):
     # list command
     list_p = subparsers.add_parser("list", help="配信中のテスト一覧と受験可能ステータスを表示")
     list_p.add_argument("--year", type=int, default=2026, help="対象年度 (デフォルト: 2026)")
+    list_p.add_argument(
+        "--sort", "-s",
+        choices=["date", "id", "status", "score", "title", "book"],
+        default="date",
+        help="並び替え基準: date (配信日時順), status (今受けるべき優先順), id (ID順), score (得点順), title (タイトル順), book (書籍名順)"
+    )
+    list_p.add_argument(
+        "--reverse", "-r",
+        action="store_true",
+        help="並び順を反転（降順/昇順反転）"
+    )
+    list_p.add_argument(
+        "--filter-status", "-f",
+        choices=["all", "active", "upcoming", "completed", "expired"],
+        default="all",
+        help="ステータス絞り込み: all (全件), active (受験可能), upcoming (開始前), completed (完了), expired (期限切れ)"
+    )
 
     # info command
     info_p = subparsers.add_parser("info", help="指定したテストの詳細情報（期間・出題形式）を表示")
@@ -96,7 +113,14 @@ def run_cli(args_list: Optional[List[str]] = None):
 
         print(f"[*] {args.year}年度の配信テスト一覧を取得中...")
         tests = client.get_tests(year=args.year)
-        print(f"\n=== {args.year}年度 配信テスト一覧（全 {len(tests)} 件） ===")
+        
+        if args.filter_status != "all":
+            tests = filter_tests(tests, filter_status=args.filter_status)
+        
+        tests = sort_tests(tests, sort_by=args.sort, reverse=args.reverse)
+        
+        sort_info = f" (並び替え: {args.sort}" + (", 逆順" if args.reverse else "") + (f", 絞り込み: {args.filter_status}" if args.filter_status != "all" else "") + ")"
+        print(f"\n=== {args.year}年度 配信テスト一覧（全 {len(tests)} 件{sort_info}） ===")
         
         h_id = pad_text("ID", 7)
         h_status = pad_text("ステータス", 18)

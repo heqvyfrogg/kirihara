@@ -46,3 +46,42 @@ def test_get_test_availability_upcoming():
     )
     assert "開始前" in status_label
     assert is_open is False
+
+def test_sort_tests():
+    from kirihara.utils import sort_tests
+    from kirihara.models import TestItem
+
+    t1 = TestItem(distributionId=100, title="B_Test", bookName="BookB", startAt="2026-08-01T00:00:00.000Z", correctCount=5, questionCount=10, status=3)
+    t2 = TestItem(distributionId=200, title="A_Test", bookName="BookA", startAt="2026-08-10T00:00:00.000Z", correctCount=10, questionCount=10, status=3)
+    t3 = TestItem(distributionId=50, title="C_Test", bookName="BookC", startAt="2026-07-01T00:00:00.000Z", correctCount=0, questionCount=10, status=None)
+
+    # Sort by ID
+    by_id = sort_tests([t1, t2, t3], sort_by="id")
+    assert [t.distributionId for t in by_id] == [50, 100, 200]
+
+    # Sort by score reverse (highest first)
+    by_score = sort_tests([t1, t2, t3], sort_by="score", reverse=True)
+    assert [t.correctCount for t in by_score] == [10, 5, 0]
+
+    # Sort by title
+    by_title = sort_tests([t1, t2, t3], sort_by="title")
+    assert [t.title for t in by_title] == ["A_Test", "B_Test", "C_Test"]
+
+    # Sort by date
+    by_date = sort_tests([t1, t2, t3], sort_by="date")
+    assert [t.distributionId for t in by_date] == [50, 100, 200]
+
+def test_filter_tests():
+    from kirihara.utils import filter_tests
+    from kirihara.models import TestItem
+
+    t_completed = TestItem(distributionId=100, title="Test1", bookName="B1", status=3)
+    t_upcoming = TestItem(distributionId=200, title="Test2", bookName="B2", startAt="2099-01-01T00:00:00.000Z", endAt="2099-01-02T00:00:00.000Z", status=None)
+    t_expired = TestItem(distributionId=300, title="Test3", bookName="B3", startAt="2020-01-01T00:00:00.000Z", endAt="2020-01-02T00:00:00.000Z", status=None)
+
+    tests = [t_completed, t_upcoming, t_expired]
+    assert len(filter_tests(tests, "all")) == 3
+    assert [t.distributionId for t in filter_tests(tests, "completed")] == [100]
+    assert [t.distributionId for t in filter_tests(tests, "upcoming")] == [200]
+    assert [t.distributionId for t in filter_tests(tests, "expired")] == [300]
+

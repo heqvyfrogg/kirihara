@@ -2,9 +2,12 @@
 from kirihara.cli import parse_args, get_auth_credentials
 
 def test_parse_args():
-    args = parse_args(["list", "--year", "2026"])
-    assert args.command == "list"
-    assert args.year == 2026
+    args_list = parse_args(["list", "--year", "2026", "--sort", "status", "--reverse", "--filter-status", "active"])
+    assert args_list.command == "list"
+    assert args_list.year == 2026
+    assert args_list.sort == "status"
+    assert args_list.reverse is True
+    assert args_list.filter_status == "active"
 
     args_info = parse_args(["info", "94506"])
     assert args_info.command == "info"
