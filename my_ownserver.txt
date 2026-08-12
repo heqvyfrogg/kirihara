@@ -1,0 +1,43 @@
+Perl5.26.x  /usr/bin/perl
+Perl5.16.x  /usr/bin/perl516
+PHP8.5.x(CGI)   /usr/bin/php8.5-cgi 又は /usr/bin/php-fcgi8.5
+PHP8.5.x(CLI)   /usr/bin/php8.5
+PHP8.4.x(CGI)   /usr/bin/php8.4-cgi 又は /usr/bin/php-fcgi8.4
+PHP8.4.x(CLI)   /usr/bin/php8.4
+PHP8.3.x(CGI)   /usr/bin/php8.3-cgi 又は /usr/bin/php-fcgi8.3
+PHP8.3.x(CLI)   /usr/bin/php8.3
+PHP8.2.x(CGI)   /usr/bin/php8.2-cgi 又は /usr/bin/php-fcgi8.2
+PHP8.2.x(CLI)   /usr/bin/php8.2
+PHP8.1.x(CGI)   /usr/bin/php8.1-cgi 又は /usr/bin/php-fcgi8.1
+PHP8.1.x(CLI)   /usr/bin/php8.1
+PHP8.0.x(CGI)   /usr/bin/php8.0-cgi 又は /usr/bin/php-fcgi8.0
+PHP8.0.x(CLI)   /usr/bin/php8.0
+PHP7.4.x(CGI)   /usr/bin/php7.4-cgi 又は /usr/bin/php-fcgi7.4
+PHP7.4.x(CLI)   /usr/bin/php7.4
+PHP7.3.x(CGI)   /usr/bin/php7.3-cgi 又は /usr/bin/php-fcgi7.3
+PHP7.3.x(CLI)   /usr/bin/php7.3
+PHP7.2.x(CGI)   /usr/bin/php7.2-cgi 又は /usr/bin/php-fcgi7.2
+PHP7.2.x(CLI)   /usr/bin/php7.2
+PHP7.1.x(CGI)   /usr/bin/php7.1-cgi 又は /usr/bin/php-fcgi7.1
+PHP7.1.x(CLI)   /usr/bin/php7.1
+PHP7.0.x(CGI)   /usr/bin/php7.0-cgi 又は /usr/bin/php-fcgi7.0
+PHP7.0.x(CLI)   /usr/bin/php7.0
+PHP5.6.x(CGI)   /usr/bin/php5.6-cgi 又は /usr/bin/php-fcgi5.6
+PHP5.6.x(CLI)   /usr/bin/php5.6
+PHP5.5.x(CGI)   /usr/bin/php-fcgi5.5
+PHP5.5.x(CLI)   /usr/bin/php5.5
+PHP5.4.x(CGI)   /usr/bin/php-fcgi5.4
+PHP5.4.x(CLI)   /usr/bin/php5.4
+PHP5.3.x(CGI)   /usr/bin/php-fcgi5.3
+PHP5.3.x(CLI)   /usr/bin/php5.3
+PHP5.1.x(CGI)   /usr/bin/php-fcgi5.1
+PHP5.1.x(CLI)   /usr/bin/php5.1
+Ruby    /usr/bin/ruby
+Python2.7.x /usr/bin/python
+Python3.4.x /usr/bin/python3.4
+Python3.6.x /usr/bin/python3.6
+nkf /usr/bin/nkf
+sendmail    /usr/sbin/sendmail
+gzip    /usr/bin/gzip
+zip     /usr/bin/zip
+unzip   /usr/bin/unzip

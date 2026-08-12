@@ -15,7 +15,7 @@ CACHE_FILE = "kirihara_cache.json"
 class KiriharaSolver:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
         self.cache: Dict[str, Any] = self._load_cache()
         self.last_inference_time: float = 0.0
         self.last_was_cached: bool = False
