@@ -128,3 +128,19 @@ def test_solve_test_mocked_gemini(mocker, tmp_path):
     cached_payload = solver.solve_test(distribution_id=94506, question_set=q_set)
     assert mock_gemini.call_count == 0
     assert len(cached_payload.testAnswers) == 2
+
+def test_solver_model_resolution(monkeypatch):
+    # Default model
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    s_default = KiriharaSolver(api_key="mock_key")
+    assert s_default.model == "gemini-flash-latest"
+
+    # From env var
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.5-flash")
+    s_env = KiriharaSolver(api_key="mock_key")
+    assert s_env.model == "gemini-3.5-flash"
+
+    # Explicit override
+    s_explicit = KiriharaSolver(api_key="mock_key", model="gemini-custom-model")
+    assert s_explicit.model == "gemini-custom-model"
+

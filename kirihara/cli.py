@@ -58,6 +58,7 @@ def parse_args(args: Optional[List[str]] = None):
     run_p.add_argument("--delay-sec", type=float, default=None, help="提出前の待機秒数を直接指定（例: --delay-sec 60）")
     run_p.add_argument("--speed", type=float, default=1.0, help="思考速度倍率（例: 2.0 で2倍速、0.5 でゆっくり待機）")
     run_p.add_argument("--instant", action="store_true", help="思考待機をスキップして即時提出")
+    run_p.add_argument("--model", type=str, default=None, help="使用するGeminiモデル名（.env の GEMINI_MODEL を上書き）")
     run_p.add_argument("--target-accuracy", type=float, default=100.0, help="目標正答率（例: 90 で意図的に数問間違える）")
     run_p.add_argument("--wait", action="store_true", help="テスト開始前の場合、開始時刻まで待機して自動開始")
 
@@ -99,9 +100,18 @@ def run_cli(args_list: Optional[List[str]] = None):
                 print(f"    都道府県: {pref}")
             else:
                 print(f"    User Type: {user.get('userType', '生徒')}")
-            for code in (user.get("accessCodes") or []):
-                if isinstance(code, dict):
-                    print(f"    所属クラス: {code.get('className')} ({code.get('schoolName')})")
+            access_codes = user.get("accessCodes") or []
+            if access_codes:
+                print(f"    所属クラス一覧 ({len(access_codes)} 件):")
+                for idx, code in enumerate(access_codes, 1):
+                    if isinstance(code, dict):
+                        c_name = code.get('className') or '(クラス名なし)'
+                        s_name = code.get('schoolName') or '(学校名なし)'
+                        year = code.get('issueFiscalYear') or ''
+                        year_str = f" [{year}年度]" if year else ""
+                        print(f"      {idx}. {s_name} {c_name}{year_str}")
+            else:
+                print("    所属クラス: (登録なし)")
         except Exception as e:
             print(f"[!] ログイン失敗: {e}")
             sys.exit(1)
@@ -111,7 +121,13 @@ def run_cli(args_list: Optional[List[str]] = None):
             user = client.ensure_authenticated(account, password) or {}
             info = user.get("userInfo") or {}
             user_name = info.get("name") or "生徒"
-            print(f"[+] ログイン中: {user_name} さん")
+            access_codes = user.get("accessCodes") or []
+            cls_strs = []
+            for code in access_codes:
+                if isinstance(code, dict) and code.get('className'):
+                    cls_strs.append(code.get('className'))
+            cls_summary = ", ".join(cls_strs) if cls_strs else "所属未登録"
+            print(f"[+] ログイン中: {user_name} さん ({cls_summary})")
         except Exception as e:
             print(f"[!] 認証警告: {e}")
 
@@ -248,7 +264,7 @@ def run_cli(args_list: Optional[List[str]] = None):
             print("[*] サーバー側テスト開始状態を同期中...")
             client.sync_start_answer(args.distribution_id)
 
-        solver = KiriharaSolver(api_key=gemini_key)
+        solver = KiriharaSolver(api_key=gemini_key, model=args.model)
         accuracy_ratio = args.target_accuracy / 100.0
         print(f"[*] AI自動解答エンジン（Geminiバッチ推論）を実行中 (目標正答率: {args.target_accuracy}%)...")
         payload = solver.solve_test(args.distribution_id, q_set, target_accuracy=accuracy_ratio)
