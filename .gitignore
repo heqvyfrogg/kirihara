@@ -6,3 +6,5 @@ kirihara_cache.json
 *.har
 .superpowers/
 docs/
+
+.geminiignore
