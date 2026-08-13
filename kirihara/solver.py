@@ -139,18 +139,33 @@ class KiriharaSolver:
             self.cache[cache_key] = solved_map
             self._save_cache()
 
+        self.last_raw_solved_map = solved_map
+        self.last_wrong_questions = set()
+
         test_answers: List[QuestionAnswer] = []
 
         for mq in question_set.mainQuestions:
             for q in mq.questions:
                 q_id_str = str(q.id)
-                chosen_ids = solved_map.get(q_id_str, [])
+                raw_chosen = solved_map.get(q_id_str, [])
+                if not isinstance(raw_chosen, list):
+                    raw_chosen = [raw_chosen]
+                chosen_ids = list(raw_chosen)
 
                 # Accuracy control (intentionally pick wrong answer if rolled)
                 if target_accuracy < 1.0 and random.random() > target_accuracy and len(q.options) > 1:
-                    wrong_opts = [opt.id for opt in q.options if opt.id not in chosen_ids]
-                    if wrong_opts:
-                        chosen_ids = [random.choice(wrong_opts)]
+                    if mq.type == 1:
+                        shuffled = list(chosen_ids)
+                        random.shuffle(shuffled)
+                        if shuffled == chosen_ids and len(shuffled) > 1:
+                            shuffled[0], shuffled[1] = shuffled[1], shuffled[0]
+                        chosen_ids = shuffled
+                        self.last_wrong_questions.add(q.id)
+                    else:
+                        wrong_opts = [opt.id for opt in q.options if opt.id not in raw_chosen]
+                        if wrong_opts:
+                            chosen_ids = [random.choice(wrong_opts)]
+                            self.last_wrong_questions.add(q.id)
 
                 if not chosen_ids and q.options:
                     chosen_ids = [q.options[0].id]
@@ -167,7 +182,7 @@ class KiriharaSolver:
         return SubmittedPayload(distributionId=distribution_id, testAnswers=test_answers)
 
     def format_preview(self, question_set: TestQuestionSet, payload: SubmittedPayload) -> List[str]:
-        """Generate human-readable preview lines with question text and chosen answer labels."""
+        """Generate human-readable preview lines with question text, original AI answer and chosen answer labels."""
         lines = []
         # Build lookup for questions and options
         q_map = {}
@@ -175,6 +190,9 @@ class KiriharaSolver:
             for q in mq.questions:
                 opt_map = {opt.id: clean_html(opt.text) for opt in q.options}
                 q_map[q.id] = (clean_html(q.text), opt_map, mq.type)
+
+        raw_map = getattr(self, "last_raw_solved_map", {}) or {}
+        wrong_set = getattr(self, "last_wrong_questions", set()) or set()
 
         for ans in payload.testAnswers:
             q_id = ans.testQuestionId
@@ -185,15 +203,33 @@ class KiriharaSolver:
                 continue
 
             q_text, opt_map, q_type = q_info
+            is_intentional_wrong = q_id in wrong_set
+            raw_chosen = raw_map.get(str(q_id), [])
+            if not isinstance(raw_chosen, list):
+                raw_chosen = [raw_chosen]
+
             if q_type == 1:
                 # Ordering
                 sorted_results = sorted(ans.results, key=lambda r: r.order)
-                words = [opt_map.get(r.id, str(r.id)) for r in sorted_results]
-                sentence = " ".join(words)
-                lines.append(f"Q#{q_id} [並び替え]: {q_text}\n    -> 完成文: 「{sentence}」")
+                submitted_words = [opt_map.get(r.id, str(r.id)) for r in sorted_results]
+                submitted_sentence = " ".join(submitted_words)
+
+                orig_words = [opt_map.get(cid, str(cid)) for cid in raw_chosen]
+                orig_sentence = " ".join(orig_words)
+
+                if is_intentional_wrong:
+                    lines.append(f"Q#{q_id} [語順整序] (※正答率調整のため故意の誤答): {q_text}\n    -> [AI正解文]: 「{orig_sentence}」\n    -> [提出予定文]: 「{submitted_sentence}」")
+                else:
+                    lines.append(f"Q#{q_id} [語順整序] [正解提出]: {q_text}\n    -> 完成文: 「{submitted_sentence}」")
             else:
                 chosen_id = ans.results[0].id if ans.results else None
                 chosen_text = opt_map.get(chosen_id, str(chosen_id))
-                lines.append(f"Q#{q_id}: {q_text} -> 選択解答: 【 {chosen_text} 】 (ID: {chosen_id})")
+                orig_id = raw_chosen[0] if raw_chosen else chosen_id
+                orig_text = opt_map.get(orig_id, str(orig_id))
+
+                if is_intentional_wrong:
+                    lines.append(f"Q#{q_id} (※正答率調整のため故意の誤答): {q_text}\n    -> [AI正解]: 【 {orig_text} 】 (ID:{orig_id})\n    -> [提出解答(誤答)]: 【 {chosen_text} 】 (ID:{chosen_id})")
+                else:
+                    lines.append(f"Q#{q_id} [正解提出]: {q_text} -> 【 {chosen_text} 】")
 
         return lines
