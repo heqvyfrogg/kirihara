@@ -148,6 +148,19 @@ def format_jst(dt: Optional[datetime]) -> str:
         return "-"
     return dt.strftime("%m/%d %H:%M")
 
+def format_remaining_time(diff_seconds: float) -> str:
+    """Format remaining seconds to 'N日N時間N分', 'N時間N分', or 'N分'."""
+    sec = max(0, int(diff_seconds))
+    days = sec // 86400
+    hours = (sec % 86400) // 3600
+    mins = (sec % 3600) // 60
+    if days > 0:
+        return f"{days}日{hours}時間{mins}分"
+    elif hours > 0:
+        return f"{hours}時間{mins}分"
+    else:
+        return f"{max(1, mins)}分"
+
 def get_test_availability(
     start_at_str: Optional[str],
     end_at_str: Optional[str],
@@ -166,9 +179,8 @@ def get_test_availability(
 
     if start_dt and now < start_dt:
         diff = start_dt - now
-        hours = int(diff.total_seconds() // 3600)
-        mins = int((diff.total_seconds() % 3600) // 60)
-        time_hint = f"あと {hours}時間{mins}分後 ({format_jst(start_dt)}〜)"
+        rem_str = format_remaining_time(diff.total_seconds())
+        time_hint = f"あと {rem_str}後 ({format_jst(start_dt)}〜)"
         return "開始前 (Upcoming)", time_hint, False
 
     if end_dt and now > end_dt:
@@ -177,9 +189,8 @@ def get_test_availability(
     # Within open window
     if end_dt:
         diff = end_dt - now
-        hours = int(diff.total_seconds() // 3600)
-        mins = int((diff.total_seconds() % 3600) // 60)
-        time_hint = f"締切まであと {hours}時間{mins}分 ({format_jst(end_dt)}まで)"
+        rem_str = format_remaining_time(diff.total_seconds())
+        time_hint = f"締切まであと {rem_str} ({format_jst(end_dt)}まで)"
     else:
         time_hint = "期限なし"
 
