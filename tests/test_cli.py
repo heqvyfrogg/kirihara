@@ -31,8 +31,14 @@ def test_parse_args():
     assert args_human.speed == 1.5
     assert args_human.delay_sec == 45.0
     assert args_human.instant is True
-    args_clear = parse_args(["clear-cache"])
-    assert args_clear.command == "clear-cache"
+    assert args_human.model == "gemini-3.5-flash"
+    assert args_human.no_cache is False
+
+    args_nocache = parse_args(["run", "94506", "--no-cache"])
+    assert args_nocache.no_cache is True
+
+    args_clearcache = parse_args(["run", "94506", "--clear-cache"])
+    assert args_clearcache.no_cache is True
 
 def test_get_auth_credentials(monkeypatch):
     monkeypatch.setenv("KIRIHARA_ACCOUNT_NAME", "env_user")

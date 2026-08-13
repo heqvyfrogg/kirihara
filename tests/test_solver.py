@@ -129,6 +129,12 @@ def test_solve_test_mocked_gemini(mocker, tmp_path):
     assert mock_gemini.call_count == 0
     assert len(cached_payload.testAnswers) == 2
 
+    # Third call with no_cache=True should bypass cache and call Gemini
+    mock_gemini.reset_mock()
+    fresh_payload = solver.solve_test(distribution_id=94506, question_set=q_set, no_cache=True)
+    assert mock_gemini.call_count == 1
+    assert len(fresh_payload.testAnswers) == 2
+
 def test_solver_model_resolution(monkeypatch):
     # Default model
     monkeypatch.delenv("GEMINI_MODEL", raising=False)

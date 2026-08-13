@@ -133,11 +133,12 @@ class KiriharaSolver:
         self,
         distribution_id: int,
         question_set: TestQuestionSet,
-        target_accuracy: float = 1.0
+        target_accuracy: float = 1.0,
+        no_cache: bool = False
     ) -> SubmittedPayload:
-        """Solve all questions in test, using local cache first to save tokens."""
+        """Solve all questions in test, optionally bypassing local cache."""
         cache_key = f"test_set_{question_set.id}"
-        solved_map = self.cache.get(cache_key)
+        solved_map = None if no_cache else self.cache.get(cache_key)
 
         if solved_map:
             self.last_was_cached = True

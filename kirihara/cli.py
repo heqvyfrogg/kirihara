@@ -61,9 +61,7 @@ def parse_args(args: Optional[List[str]] = None):
     run_p.add_argument("--model", type=str, default=None, help="使用するGeminiモデル名（.env の GEMINI_MODEL を上書き）")
     run_p.add_argument("--target-accuracy", type=float, default=100.0, help="目標正答率（例: 90 で意図的に数問間違える）")
     run_p.add_argument("--wait", action="store_true", help="テスト開始前の場合、開始時刻まで待機して自動開始")
-
-    # clear-cache command
-    subparsers.add_parser("clear-cache", help="AI推論キャッシュ (kirihara_cache.json) を全削除・リセット")
+    run_p.add_argument("--no-cache", "--clear-cache", "-nc", dest="no_cache", action="store_true", help="キャッシュを無視して新規AI推論を実行（キャッシュ上書き）")
 
     return parser.parse_args(args)
 
@@ -86,13 +84,7 @@ def run_cli(args_list: Optional[List[str]] = None):
 
     client = KiriharaClient(session_cookie=session_cookie)
 
-    if args.command == "clear-cache":
-        solver = KiriharaSolver()
-        count = solver.clear_cache()
-        print(f"[+] AI推論キャッシュをクリアしました (削除件数: {count} 件)")
-        sys.exit(0)
-
-    elif args.command == "login":
+    if args.command == "login":
         print("[*] 桐原書店サーバーへ認証中...")
         try:
             user = client.ensure_authenticated(account, password) or {}
@@ -289,7 +281,7 @@ def run_cli(args_list: Optional[List[str]] = None):
         solver = KiriharaSolver(api_key=gemini_key, model=args.model)
         accuracy_ratio = args.target_accuracy / 100.0
         print(f"[*] AI自動解答エンジン（Geminiバッチ推論）を実行中 (目標正答率: {args.target_accuracy}%)...")
-        payload = solver.solve_test(args.distribution_id, q_set, target_accuracy=accuracy_ratio)
+        payload = solver.solve_test(args.distribution_id, q_set, target_accuracy=accuracy_ratio, no_cache=args.no_cache)
         t_inference_duration = solver.last_inference_time
         was_cached = solver.last_was_cached
 
