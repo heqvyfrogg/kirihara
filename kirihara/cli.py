@@ -210,7 +210,7 @@ def run_cli(args_list: Optional[List[str]] = None):
                 print(f"過去スコア: {matched_test.correctCount} / {matched_test.questionCount} 点")
             if matched_test.answerAt:
                 ans_dt = parse_iso_datetime(matched_test.answerAt)
-                print(f"提出日時  : {format_jst(ans_dt)} JST (サーバー記録)")
+                print(f"解答公開  : {format_jst(ans_dt)} JST (公式解禁日時)")
 
         if q_set and q_set.mainQuestions:
             print("\n--- 大問構成 ---")
