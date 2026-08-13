@@ -37,6 +37,11 @@ class Question(BaseModel):
     questionSource: Optional[str] = None
     answerCount: Optional[int] = 1
     options: List[Option] = Field(default_factory=list)
+    answers: Optional[List[Option]] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.options and self.answers:
+            self.options = self.answers
 
 class MainQuestion(BaseModel):
     id: int

@@ -92,6 +92,26 @@ class KiriharaClient:
         resp.raise_for_status()
         return resp.json()
 
+    def get_student_answer(self, distribution_id: int) -> Optional[TestQuestionSet]:
+        """Fetch completed test question set and answers (GET /kirihara/api/users/me/answer/{distribution_id})."""
+        url = f"{BASE_URL}/kirihara/api/users/me/answer/{distribution_id}"
+        resp = self.session.get(url, headers=self._headers("KFS"))
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if not isinstance(data, dict):
+            return None
+        
+        # options 構造の互換性正規化 (answers -> options)
+        if "mainQuestions" in data and isinstance(data["mainQuestions"], list):
+            for mq in data["mainQuestions"]:
+                if isinstance(mq, dict) and "questions" in mq and isinstance(mq["questions"], list):
+                    for q in mq["questions"]:
+                        if isinstance(q, dict) and not q.get("options") and q.get("answers"):
+                            q["options"] = q["answers"]
+
+        return TestQuestionSet.model_validate(data)
+
     def fetch_question_set(self, json_url: str) -> TestQuestionSet:
         """Download problem JSON from CloudFront/S3."""
         resp = self.session.get(json_url, headers=self.base_headers)

@@ -15,7 +15,7 @@ CACHE_FILE = "kirihara_cache.json"
 class KiriharaSolver:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         self.cache: Dict[str, Any] = self._load_cache()
         self.last_inference_time: float = 0.0
         self.last_was_cached: bool = False
@@ -63,21 +63,59 @@ class KiriharaSolver:
         return "\n".join(lines)
 
     def _call_gemini(self, prompt: str) -> Dict[str, List[int]]:
-        """Call Gemini API using google-genai SDK."""
+        """Call Gemini/Gemma API using google-genai SDK or direct REST with robust parsing."""
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not set in environment or .env file.")
 
+        import re
         from google import genai
         client = genai.Client(api_key=self.api_key)
+        
+        config = {}
+        if "gemma" not in self.model.lower():
+            config["response_mime_type"] = "application/json"
+
         response = client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config={
-                "response_mime_type": "application/json"
-            }
+            config=config if config else None
         )
-        text = response.text.strip()
-        return json.loads(text)
+        text = (response.text or "").strip()
+        
+        # 1. ```json ... ``` ブロックを探索
+        blocks = re.findall(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', text, re.IGNORECASE)
+        if blocks:
+            try:
+                return json.loads(blocks[-1])
+            except Exception:
+                pass
+
+        # 2. 直接パース
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+
+        # 3. テキスト中の { ... } を抽出
+        m = re.search(r'\{[\s\S]*\}', text)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except Exception:
+                pass
+
+        # 4. 正規表現によるフォールバック
+        extracted = {}
+        matches = re.findall(r'(?:Q#|question[_\s]*id\s*[:=]?\s*)?["\']?(\d{4,9})["\']?\s*[:=]\s*\[?(\d+(?:\s*,\s*\d+)*)\]?', text, re.IGNORECASE)
+        for q_id, choices_str in matches:
+            c_vals = [int(x.strip()) for x in choices_str.split(',') if x.strip().isdigit()]
+            if c_vals:
+                extracted[q_id] = c_vals
+
+        if extracted:
+            return extracted
+
+        raise ValueError(f"モデル ({self.model}) からの応答JSONのパースに失敗しました: {text[:150]}")
 
     def solve_test(
         self,

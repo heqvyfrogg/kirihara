@@ -179,7 +179,14 @@ def run_cli(args_list: Optional[List[str]] = None):
 
         url_info = client.get_test_url(args.distribution_id)
         json_url = url_info.get("jsonUrl") if url_info else None
-        q_set = client.fetch_question_set(json_url) if json_url else None
+        q_set = None
+        if json_url:
+            try:
+                q_set = client.fetch_question_set(json_url)
+            except Exception:
+                pass
+        if not q_set:
+            q_set = client.get_student_answer(args.distribution_id)
 
         print(f"\n=== テスト詳細情報 (ID: {args.distribution_id}) ===")
         title = matched_test.title if matched_test else (q_set.title if q_set else "-")
@@ -205,13 +212,11 @@ def run_cli(args_list: Optional[List[str]] = None):
                 ans_dt = parse_iso_datetime(matched_test.answerAt)
                 print(f"提出日時  : {format_jst(ans_dt)} JST (サーバー記録)")
 
-        if q_set:
+        if q_set and q_set.mainQuestions:
             print("\n--- 大問構成 ---")
             for idx, mq in enumerate(q_set.mainQuestions, 1):
                 type_name = "語順整序 (並び替え)" if mq.type == 1 else "選択問題"
                 print(f"  大問{idx} [{type_name}] ({len(mq.questions)}問): {mq.text}")
-        elif matched_test and matched_test.status == 3:
-            print("\n(※受験完了済みのため大問構成の詳細は非表示)")
 
     elif args.command == "run":
         try:
@@ -252,11 +257,19 @@ def run_cli(args_list: Optional[List[str]] = None):
         t_fetch_start = time.time()
         url_info = client.get_test_url(args.distribution_id)
         json_url = url_info.get("jsonUrl") if url_info else None
-        if not json_url:
-            print(f"[!] エラー: 問題JSONのURL取得に失敗しました。すでに受験完了しているか配信期間外の可能性があります。")
+        q_set = None
+        if json_url:
+            try:
+                q_set = client.fetch_question_set(json_url)
+            except Exception:
+                pass
+        if not q_set:
+            q_set = client.get_student_answer(args.distribution_id)
+
+        if not q_set:
+            print(f"[!] エラー: 問題データの取得に失敗しました。")
             sys.exit(1)
 
-        q_set = client.fetch_question_set(json_url)
         t_fetch_duration = time.time() - t_fetch_start
         print(f"[+] 問題取得完了: 『{q_set.bookName}』 {q_set.title} (全{q_set.count}問) [{t_fetch_duration:.2f}秒]")
 
