@@ -100,8 +100,12 @@ def test_calculate_human_delay():
     q_set = TestQuestionSet(id=1, title="T", bookName="B", count=3, mainQuestions=[mq1, mq2])
 
     delay = calculate_human_delay(q_set, speed_factor=1.0)
-    # 2 choice (4-7.5 each) + 1 ordering (9-18) -> min 17, max 33
-    assert 15.0 <= delay <= 36.0
+    # 2 choice (7-13 each) + 1 ordering (14-26) -> min 28, max 52
+    assert 25.0 <= delay <= 55.0
+
+    # limit_time_seconds = 300 -> 50% to 80% (150s - 240s)
+    delay_limit = calculate_human_delay(q_set, speed_factor=1.0, limit_time_seconds=300)
+    assert 145.0 <= delay_limit <= 245.0
 
     # 2x speed
     delay_fast = calculate_human_delay(q_set, speed_factor=2.0)

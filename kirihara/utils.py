@@ -26,29 +26,40 @@ def simulate_delay(min_sec: float = 1.0, max_sec: float = 3.0) -> float:
     time.sleep(delay)
     return delay
 
-def calculate_human_delay(question_set: Any, speed_factor: float = 1.0) -> float:
+def calculate_human_delay(question_set: Any, speed_factor: float = 1.0, limit_time_seconds: Optional[int] = None) -> float:
     """
     Calculate realistic human answering delay based on question types and counts.
-    - Multiple choice: 4.0 - 7.5 seconds per question
-    - Ordering (並び替え): 9.0 - 18.0 seconds per question
-    - Listening (音声): 8.0 - 15.0 seconds per question
+    - Multiple choice: 7.0 - 13.0 seconds per question
+    - Ordering (並び替え): 14.0 - 26.0 seconds per question
+    - Listening (音声): 12.0 - 20.0 seconds per question
+    - If limit_time_seconds is set, bound to 50% - 80% of limit time.
     """
     total = 0.0
     for mq in getattr(question_set, "mainQuestions", []):
         for q in getattr(mq, "questions", []):
             if getattr(mq, "type", 0) == 1:
-                base = random.uniform(9.0, 18.0)
+                base = random.uniform(14.0, 26.0)
             elif getattr(q, "audioUrl", None):
-                base = random.uniform(8.0, 15.0)
+                base = random.uniform(12.0, 20.0)
             else:
-                base = random.uniform(4.0, 7.5)
+                base = random.uniform(7.0, 13.0)
             total += base
     
     if total <= 0:
-        total = max(5.0, getattr(question_set, "count", 1) * 5.5)
+        total = max(10.0, getattr(question_set, "count", 1) * 9.5)
 
     factor = max(0.05, speed_factor)
-    return round(total / factor, 1)
+    total_delay = total / factor
+
+    if limit_time_seconds and limit_time_seconds > 0:
+        min_allowed = limit_time_seconds * 0.50
+        max_allowed = limit_time_seconds * 0.80
+        if total_delay > max_allowed:
+            total_delay = random.uniform(max_allowed * 0.90, max_allowed)
+        elif total_delay < min_allowed:
+            total_delay = random.uniform(min_allowed, min_allowed * 1.15)
+
+    return round(total_delay, 1)
 
 def simulate_human_delay_countdown(target_seconds: float, show_progress: bool = True) -> float:
     """

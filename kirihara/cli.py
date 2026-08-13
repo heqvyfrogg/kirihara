@@ -235,6 +235,11 @@ def run_cli(args_list: Optional[List[str]] = None):
             )
             if matched_test.status == 3:
                 print(f"[!] 注意: このテスト (ID: {args.distribution_id}) は既に受験完了しています (得点: {matched_test.correctCount}/{matched_test.questionCount})。")
+            elif status_key == "expired":
+                print(f"[!] このテスト (ID: {args.distribution_id}) は実施期間が終了（期限切れ: {time_hint}）しています。")
+                if not args.dry_run:
+                    print("[!] 期限切れテストのためサーバーへの提出は行えません。解答内容を確認したい場合は `--dry-run` を指定してください。")
+                    sys.exit(1)
             elif not is_open:
                 start_dt = parse_iso_datetime(matched_test.startAt)
                 now = datetime.now(JST)
@@ -305,7 +310,7 @@ def run_cli(args_list: Optional[List[str]] = None):
             if args.delay_sec is not None:
                 target_delay = args.delay_sec
             else:
-                target_delay = calculate_human_delay(q_set, speed_factor=args.speed)
+                target_delay = calculate_human_delay(q_set, speed_factor=args.speed, limit_time_seconds=q_set.limitTime)
             
             print("")
             t_delay_duration = simulate_human_delay_countdown(target_delay, show_progress=True)
