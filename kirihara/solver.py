@@ -74,7 +74,63 @@ class KiriharaSolver:
                 lines.append(f"Q#{q.id}: {q_text} -> Options: [{options_str}]")
         return "\n".join(lines)
 
-    def _call_gemini(self, prompt: str) -> Dict[str, List[int]]:
+    def _extract_answers_from_thinking_text(self, text: str, question_set: TestQuestionSet) -> Dict[str, List[int]]:
+        """Smart fallback to match choice IDs from LLM reasoning/explanations."""
+        import re
+        result = {}
+        for mq in question_set.mainQuestions:
+            is_ordering = (mq.type == 1)
+            for q in mq.questions:
+                q_id_str = str(q.id)
+                opt_ids = [opt.id for opt in q.options]
+                if not opt_ids:
+                    continue
+
+                # 設問ブロックを切り出し
+                block = ""
+                m = re.search(r'(?:Q#|question[_\s]*id\s*[:=]?\s*|設問|問)?\b' + str(q.id) + r'\b([\s\S]*?)(?=(?:Q#|question[_\s]*id\s*[:=]?\s*|設問|問)\b\d{4,9}\b|$)', text, re.IGNORECASE)
+                if m:
+                    block = m.group(1)
+
+                target_text = block if block else text
+                found_ids = []
+
+                if is_ordering:
+                    opt_pattern = r'\b(' + '|'.join(map(str, opt_ids)) + r')\b'
+                    matches = re.findall(opt_pattern, target_text)
+                    unique_ordered = []
+                    for mid_str in matches:
+                        mid = int(mid_str)
+                        if mid not in unique_ordered:
+                            unique_ordered.append(mid)
+                    for oid in opt_ids:
+                        if oid not in unique_ordered:
+                            unique_ordered.append(oid)
+                    found_ids = unique_ordered
+                else:
+                    opt_pattern = r'\b(' + '|'.join(map(str, opt_ids)) + r')\b'
+                    am = re.search(r'(?:Option|Choice|Answer|正解|解答|ChoiceID|ID)[\s:]*\[?' + opt_pattern + r'\]?', target_text, re.IGNORECASE)
+                    if am:
+                        found_ids = [int(am.group(1))]
+                    else:
+                        am2 = re.search(opt_pattern, target_text)
+                        if am2:
+                            found_ids = [int(am2.group(1))]
+                        else:
+                            for opt in q.options:
+                                clean_opt = clean_html(opt.text).strip()
+                                if len(clean_opt) >= 2 and clean_opt in target_text:
+                                    found_ids = [opt.id]
+                                    break
+
+                if found_ids:
+                    result[q_id_str] = found_ids
+                else:
+                    result[q_id_str] = opt_ids if is_ordering else [opt_ids[0]]
+
+        return result
+
+    def _call_gemini(self, prompt: str, question_set: Optional[TestQuestionSet] = None) -> Dict[str, List[int]]:
         """Call Gemini/Gemma API using google-genai SDK or direct REST with robust parsing."""
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not set in environment or .env file.")
@@ -83,14 +139,17 @@ class KiriharaSolver:
         from google import genai
         client = genai.Client(api_key=self.api_key)
         
-        config = {}
+        config = {
+            "temperature": 0.1,
+            "max_output_tokens": 8192
+        }
         if "gemma" not in self.model.lower():
             config["response_mime_type"] = "application/json"
 
         response = client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config=config if config else None
+            config=config
         )
         text = (response.text or "").strip()
         
@@ -127,6 +186,12 @@ class KiriharaSolver:
         if extracted:
             return extracted
 
+        # 5. 問題セットとのスマートマッチング抽出
+        if question_set:
+            smart_extracted = self._extract_answers_from_thinking_text(text, question_set)
+            if smart_extracted:
+                return smart_extracted
+
         raise ValueError(f"モデル ({self.model}) からの応答JSONのパースに失敗しました: {text[:150]}")
 
     def solve_test(
@@ -147,7 +212,7 @@ class KiriharaSolver:
             self.last_was_cached = False
             t_start = time.time()
             prompt = self._build_compact_prompt(question_set)
-            solved_map = self._call_gemini(prompt)
+            solved_map = self._call_gemini(prompt, question_set)
             self.last_inference_time = time.time() - t_start
             self.cache[cache_key] = solved_map
             self._save_cache()
