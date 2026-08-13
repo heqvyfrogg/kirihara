@@ -117,4 +117,12 @@ def test_simulate_human_delay_countdown():
     elapsed = simulate_human_delay_countdown(0.1, show_progress=False)
     assert elapsed >= 0.08
 
+def test_format_remaining_time():
+    from kirihara.utils import format_remaining_time
+    assert format_remaining_time(90000) == "1日1時間0分"
+    assert format_remaining_time(7200) == "2時間0分"
+    assert format_remaining_time(150) == "2分"
+    assert format_remaining_time(0) == "1分"
+
+
 
