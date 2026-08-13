@@ -38,6 +38,18 @@ class KiriharaSolver:
         except Exception:
             pass
 
+    def clear_cache(self) -> int:
+        """Clear all inference cache items and persist empty cache."""
+        count = len(self.cache)
+        self.cache = {}
+        target_file = CACHE_FILE
+        try:
+            with open(target_file, "w", encoding="utf-8") as f:
+                json.dump({}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+        return count
+
     def _build_compact_prompt(self, question_set: TestQuestionSet) -> str:
         """Construct a minimal-token prompt for batch solving English & Classical Japanese (古文)."""
         lines = [

@@ -144,3 +144,19 @@ def test_solver_model_resolution(monkeypatch):
     s_explicit = KiriharaSolver(api_key="mock_key", model="gemini-custom-model")
     assert s_explicit.model == "gemini-custom-model"
 
+def test_clear_cache(tmp_path, monkeypatch):
+    test_cache = str(tmp_path / "test_cache.json")
+    monkeypatch.setattr("kirihara.solver.CACHE_FILE", test_cache)
+    
+    solver = KiriharaSolver(api_key="mock_key")
+    solver.cache["dummy_key"] = {"1": [100]}
+    solver._save_cache()
+    assert os.path.exists(test_cache)
+    
+    cleared = solver.clear_cache()
+    assert cleared == 1
+    assert solver.cache == {}
+    with open(test_cache, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert data == {}
+

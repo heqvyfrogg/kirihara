@@ -62,6 +62,9 @@ def parse_args(args: Optional[List[str]] = None):
     run_p.add_argument("--target-accuracy", type=float, default=100.0, help="目標正答率（例: 90 で意図的に数問間違える）")
     run_p.add_argument("--wait", action="store_true", help="テスト開始前の場合、開始時刻まで待機して自動開始")
 
+    # clear-cache command
+    subparsers.add_parser("clear-cache", help="AI推論キャッシュ (kirihara_cache.json) を全削除・リセット")
+
     return parser.parse_args(args)
 
 def get_auth_credentials(args):
@@ -83,7 +86,13 @@ def run_cli(args_list: Optional[List[str]] = None):
 
     client = KiriharaClient(session_cookie=session_cookie)
 
-    if args.command == "login":
+    if args.command == "clear-cache":
+        solver = KiriharaSolver()
+        count = solver.clear_cache()
+        print(f"[+] AI推論キャッシュをクリアしました (削除件数: {count} 件)")
+        sys.exit(0)
+
+    elif args.command == "login":
         print("[*] 桐原書店サーバーへ認証中...")
         try:
             user = client.ensure_authenticated(account, password) or {}
@@ -359,5 +368,8 @@ def run_cli(args_list: Optional[List[str]] = None):
         if t_completed_info and t_completed_info.answerAt:
             ans_dt = parse_iso_datetime(t_completed_info.answerAt)
             print(f"  - サーバー記録提出 : {format_jst(ans_dt)} JST (answerAt)")
+
+if __name__ == "__main__":
+    run_cli()
 
 
